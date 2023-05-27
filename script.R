@@ -33,7 +33,7 @@ for (i in 1:length(songs_ids)) {
 
 # collapse all lyrics lines into a single text
 for (i in 1:length(songs_lyrics)){
-  songs_lyrics[[i]] <- songs_lyrics[[i]]$line %>% paste(collapse = " ")
+  songs_lyrics[[i]] <- songs_lyrics[[i]]$line %>% paste(collapse = "\n")
 }
 
 songs_lyrics <- unlist(songs_lyrics)
@@ -47,3 +47,12 @@ songs %>% head(1)
 # version, knowing Caparezza's discography
 songs <- songs %>% filter(!grepl("Live|Radio Edit|Radio Version|Remix|RMX", title))
 
+# add id to each song
+songs <- songs %>% mutate(id = 1:nrow(songs))
+
+table(songs$album) %>% as.data.frame() %>% arrange(-Freq)
+
+caparezza_corpus <- corpus(songs$lyrics, docnames = songs$id)
+summary(caparezza_corpus)
+
+cat(as.character(caparezza_corpus[1]))
