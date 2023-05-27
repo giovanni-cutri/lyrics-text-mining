@@ -56,3 +56,9 @@ caparezza_corpus <- corpus(songs$lyrics, docnames = songs$id)
 summary(caparezza_corpus)
 
 cat(as.character(caparezza_corpus[1]))
+
+DTM <- dfm(tokens(caparezza_corpus))
+DTM
+
+DTM %>% dim()
+
