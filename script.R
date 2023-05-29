@@ -89,13 +89,21 @@ freqs <- colSums(DTM)
 words <- colnames(DTM)
 wordlist <- data.frame(words, freqs)
 wordlist %>% arrange(-freqs) %>% head()
+findFreqTerms(DTM, 150)
 
+corpus_size <- sum(wordlist$freqs)
+corpus_size
 
+vocabulary_size <- nrow(wordlist)
+vocabulary_size
 
+words_occurrencies <- wordlist %>% group_by(freqs) %>% summarise(vK = n()) %>% arrange(-vK)
+words_occurrencies
 
-
-
-
+lexicon_width <- vocabulary_size/corpus_size
+lexicon_width
+language_refinement <- words_occurrencies$vK[1] / colSums(words_occurrencies)[2]
+language_refinement
 
 
 # mamma mia mammà peso
