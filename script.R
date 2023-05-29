@@ -108,8 +108,8 @@ DTM
 
 DTM %>% dim()
 
-freqs <- colSums(DTM)
 words <- colnames(DTM)
+freqs <- colSums(DTM)
 wordlist <- data.frame(words, freqs)
 wordlist %>% arrange(-freqs) %>% head()
 
@@ -143,6 +143,19 @@ wordcloud(words = wordlist_tf_idf$words, freq = wordlist_tf_idf$freqs, scale = c
 text(0.5, 1, "wordcloud with TF ponderation", font = 2)
 
 
+lemmatized_lyrics_by_album <- songs %>% group_by(album) %>%
+  summarise(lemmatized = paste(lemmatized, collapse = " ")) %>% arrange(match(album, albums))
+corpus_album <- lemmatized_lyrics_by_album$lemmatized %>% corpus()
+
+DTM_album <- corpus_album %>% tokens() %>% dfm()
+DTM_album
+wordlist_album <- DTM_album %>% as.matrix() %>% t()
+comparison.cloud(wordlist_album, scale = c(2, 1), max.words = 50, random.order = F,
+          colors = RColorBrewer::brewer.pal(name = "Dark2", n = 8))
+text(0.5, 1, "wordcloud with TF ponderation", font = 2)
+
+
+
 
 #https://saifmohammad.com/WebPages/NRC-Emotion-Lexicon.htm
 sentiment_lexicon <- read.table("resources/Italian-NRC-EmoLex.txt", header = TRUE,
@@ -170,6 +183,12 @@ ggplot(data = df, aes(x = album, y = value, fill = variable)) +
 positive_songs <- aggregate(
   relative_sentiment_frequencies, by = list(album = songs$title),
   mean) %>% filter(positive > negative)
+
+
+
+
+
+
 
 
 
