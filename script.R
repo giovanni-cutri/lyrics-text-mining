@@ -4,6 +4,8 @@ library(tidytext)
 library(quanteda)
 library(udpipe)
 library(wordcloud)
+library(textdata)
+library(reshape2)
 
 genius_token()
 
@@ -15,6 +17,7 @@ for (song in artist_songs$content) {
   song_id <- song$id
   songs_ids <- songs_ids %>% append(song_id)
 }
+
 
 songs_titles <- c()
 songs_albums <- c()
@@ -46,9 +49,12 @@ songs %>% head(1)
 
 # we are going to ignore alternative versions of the same song, such as
 # live versions, radio edits and remixes
-# we keep "demo" versions because they are sufficiently different from the final
-# version, knowing Caparezza's discography
-songs <- songs %>% filter(!grepl("Live|Radio Edit|Radio Version|Remix|RMX", title))
+# we are also keeping only the main albums, ignoring specials or compilations
+albums <- c("?! (Caparezza ?!)", "Verità Supposte", "Habemus Capa",
+            "Le Dimensioni Del Mio Caos", "Il Sogno Eretico", "Museica",
+            "Prisoner 709", "Exuvia")
+songs <- songs %>%
+  filter(!grepl("Live|Radio Edit|Radio Version|Remix|RMX", title) & album %in% albums)
 
 # add id to each song
 doc_ids <- vector()
@@ -115,6 +121,32 @@ language_refinement
 wordcloud(words = wordlist$words, freq = wordlist$freqs, scale = c(3.5, 0.35), max.words = 50, random.order = F,
           colors = RColorBrewer::brewer.pal(name = "Dark2", n = 4))
 text(0.5, 1, "wordcloud with TF ponderation", font = 2)
+
+
+
+
+#https://saifmohammad.com/WebPages/NRC-Emotion-Lexicon.htm
+sentiment_lexicon <- read.table("resources/Italian-NRC-EmoLex.txt", header = TRUE,
+                              sep = "\t")
+sentiment_lexicon_corpus <- emotion_lexicon %>% filter(Italian.Word %in% colnames(DTM))
+positive_terms <- sentiment_lexicon_corpus %>% filter(positive == 1) %>%
+  select(Italian.Word) %>% pull()
+negative_terms <- sentiment_lexicon_corpus %>% filter(positive == 0) %>%
+  select(Italian.Word) %>% pull()
+counts_positive <- rowSums(DTM[, positive_terms])
+counts_negative <- rowSums(DTM[, negative_terms])
+counts_all_terms <- rowSums(DTM)
+relative_sentiment_frequencies <- data.frame(
+  positive = counts_positive / counts_all_terms,
+  negative = counts_negative / counts_all_terms
+)
+sentiments_by_album <- aggregate(relative_sentiment_frequencies,
+                                 by = list(album = songs$album), mean)
+
+head(sentiments_by_album)
+df <- melt(sentiments_by_album, id.vars = "album")
+ggplot(data = df, aes(x = album, y = value, fill = variable)) + 
+  geom_bar(stat="identity", position=position_dodge()) + coord_flip()
 
 
 
