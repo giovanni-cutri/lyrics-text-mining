@@ -73,37 +73,12 @@ outL <- outL %>% filter(!(token %in% it_stopwords) & !(lemma %in% it_stopwords))
 
 outL %>% select(doc_id, token, lemma, upos) %>% sample_n(5)
 
-lemmatized_lyrics <- outL %>% group_by(doc_id) %>% summarise(txtL = paste(lemma, collapse = " "))
-test$lemmatized <- lemmatized_lyrics$txtL
+# fct_inorder preserves original order of the column
+lemmatized_lyrics <- outL %>% group_by(doc_id = fct_inorder(doc_id)) %>%
+  summarise(txtL = paste(lemma, collapse = " "))
+songs$lemmatized <- lemmatized_lyrics$txtL
 
-
-
-test <- ? %>% dfm() 
-
-test
-
-
-freqs <- colSums(test)
-words <- colnames(test)
-wordlist <- data.frame(words, freqs)
-wordlist %>% arrange(-freqs) %>% head(50)
-
-copy[[1]] <- lemmatize_words(copy[[1]])
-
-copy[[1]]
-lemmatize_strings(copy[[1]])
-copy2 <- tm_map(copy, lemmatize_strings)
-
-
-
-
-
-
-
-corpus_tokens <- caparezza_corpus %>%
-  tokens(remove_punct = TRUE, remove_numbers = TRUE, remove_symbols = TRUE) %>%
-  tokens_tolower() %>%
-  tokens_replace()
+caparezza_corpus <- songs$lemmatized %>% corpus(docnames = songs$id)
 
 DTM <- dfm(tokens(caparezza_corpus))
 DTM
@@ -114,3 +89,28 @@ freqs <- colSums(DTM)
 words <- colnames(DTM)
 wordlist <- data.frame(words, freqs)
 wordlist %>% arrange(-freqs) %>% head()
+
+
+
+
+
+
+
+
+
+# mamma mia mammà peso
+
+
+count <- 1
+for(i in songs$lyrics){
+  if(grepl("don't", i)){
+    print(songs$title[[count]])
+    readline()
+  }
+  count <- count + 1
+}
+
+
+
+
+
