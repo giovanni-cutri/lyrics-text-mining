@@ -56,6 +56,9 @@ albums <- c("?! (Caparezza ?!)", "Verità Supposte", "Habemus Capa",
 songs <- songs %>%
   filter(!grepl("Live|Radio Edit|Radio Version|Remix|RMX", title) & album %in% albums)
 
+# finally, we order songs chronologically by the album
+songs <- songs %>% arrange(match(album, albums), title)
+
 # add id to each song
 doc_ids <- vector()
 for(i in 1:nrow(songs)){
