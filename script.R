@@ -3,6 +3,7 @@ library(tidyverse)
 library(tidytext)
 library(quanteda)
 library(udpipe)
+library(wordcloud)
 
 genius_token()
 
@@ -26,7 +27,7 @@ for (i in 1:length(songs_ids)) {
   song_lyrics <- list(get_lyrics_id(songs_ids[i]))
   # some songs have no album associated with them, so we won't consider them
   # additionally, some songs have no lyrics, we are excluding them too
-  if (!is.null(song_album) & songs_lyrics != ""){
+  if (!is.null(song_album) & nrow(songs_lyrics) != 0){
     songs_titles <- songs_titles %>% append(song_title)
     songs_albums <- songs_albums %>% append(song_album)
     songs_lyrics <- songs_lyrics %>% append(song_lyrics) 
@@ -89,7 +90,6 @@ freqs <- colSums(DTM)
 words <- colnames(DTM)
 wordlist <- data.frame(words, freqs)
 wordlist %>% arrange(-freqs) %>% head()
-findFreqTerms(DTM, 150)
 
 corpus_size <- sum(wordlist$freqs)
 corpus_size
@@ -104,6 +104,13 @@ lexicon_width <- vocabulary_size/corpus_size
 lexicon_width
 language_refinement <- words_occurrencies$vK[1] / colSums(words_occurrencies)[2]
 language_refinement
+
+
+wordlist
+wordcloud(words = wordlist$words, freq = wordlist$freqs, scale = c(3.5, 0.35), max.words = 75, random.order = F,
+          colors = RColorBrewer::brewer.pal(name = "Dark2", n = 4))
+text(0.5, 1, "wordcloud with TF ponderation", font = 2)
+
 
 
 # mamma mia mammà peso
@@ -121,4 +128,20 @@ for(i in songs$lyrics){
 
 
 
+outLtest <- outL %>% filter(upos %in% c("NOUN", "PROPN", "ADJ", "VERB", "ADV"))
+lemmatized_lyricstest <- outLtest %>% group_by(doc_id = fct_inorder(doc_id)) %>%
+  summarise(txtL = paste(lemma, collapse = " "))
+songstest <- songs
+songstest$lemmatized <- lemmatized_lyricstest$txtL
 
+caparezza_corpus <- songs$lemmatized %>% corpus(docnames = songs$id)
+
+DTM <- dfm(tokens(caparezza_corpus))
+DTM
+
+DTM %>% dim()
+
+freqs <- colSums(DTM)
+words <- colnames(DTM)
+wordlist <- data.frame(words, freqs)
+wordlist %>% arrange(-freqs) %>% head()
