@@ -132,7 +132,15 @@ wordcloud(words = wordlist$words, freq = wordlist$freqs, scale = c(3.5, 0.35), m
 text(0.5, 1, "wordcloud with TF ponderation", font = 2)
 
 
+tf_idf <- dfm_tfidf(DTM)
+freqs_tf_idf <- colSums(tf_idf)
+words_tf_idf <- colnames(tf_idf)
+wordlist_tf_idf <- data.frame(words = words_tf_idf, freqs = freqs_tf_idf)
+wordlist_tf_idf %>% arrange(-freqs) %>% head(10)
 
+wordcloud(words = wordlist_tf_idf$words, freq = wordlist_tf_idf$freqs, scale = c(3.5, 0.35), max.words = 50, random.order = F,
+          colors = RColorBrewer::brewer.pal(name = "Dark2", n = 4))
+text(0.5, 1, "wordcloud with TF ponderation", font = 2)
 
 
 
