@@ -2,6 +2,7 @@ library(geniusr)
 library(tidyverse)
 library(tidytext)
 library(quanteda)
+library(quanteda.textstats)
 library(udpipe)
 library(wordcloud)
 library(textdata)
@@ -79,7 +80,7 @@ corpus_tokens <- caparezza_corpus %>%
   tokens_tolower()
 
 txt <- sapply(corpus_tokens, FUN=function(x) paste(x, collapse = "\n"))
-udpipe_download_model(language = "italian-isdt")
+udpipe_download_model(language = "italian-isdt", model_dir = "resources/")
 lang_model <- udpipe_load_model(file = "italian-isdt-ud-2.5-191206.udpipe")
 outL <- udpipe_annotate(lang_model, x = txt, tokenizer = "vertical", trace = TRUE) %>%
   as.data.frame()
@@ -97,7 +98,12 @@ songs <- songs %>% right_join(lemmatized_lyrics, by = "doc_id")
 
 caparezza_corpus <- songs$lemmatized %>% corpus(docnames = songs$id)
 
-DTM <- dfm(tokens(caparezza_corpus))
+collocations <- caparezza_corpus %>% tokens() %>% textstat_collocations %>%
+  arrange(-count) %>% head(10)
+
+DTM <- caparezza_corpus %>% tokens() %>% tokens_compound(collocations[c(4,6),]) %>%
+  tokens_remove("") %>% dfm()
+
 DTM
 
 DTM %>% dim()
@@ -128,6 +134,8 @@ text(0.5, 1, "wordcloud with TF ponderation", font = 2)
 
 
 
+
+
 #https://saifmohammad.com/WebPages/NRC-Emotion-Lexicon.htm
 sentiment_lexicon <- read.table("resources/Italian-NRC-EmoLex.txt", header = TRUE,
                               sep = "\t")
@@ -149,7 +157,11 @@ sentiments_by_album <- aggregate(relative_sentiment_frequencies,
 head(sentiments_by_album)
 df <- melt(sentiments_by_album, id.vars = "album")
 ggplot(data = df, aes(x = album, y = value, fill = variable)) + 
-  geom_bar(stat="identity", position=position_dodge()) + coord_flip()
+  geom_bar(stat="identity", position="stack") + coord_flip()
+
+positive_songs <- aggregate(
+  relative_sentiment_frequencies, by = list(album = songs$title),
+  mean) %>% filter(positive > negative)
 
 
 
