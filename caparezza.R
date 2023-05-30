@@ -7,6 +7,7 @@ library(udpipe)
 library(wordcloud)
 library(textdata)
 library(reshape2)
+library(igraph)
 
 genius_token()
 
@@ -18,7 +19,6 @@ for (song in artist_songs$content) {
   song_id <- song$id
   songs_ids <- songs_ids %>% append(song_id)
 }
-
 
 songs_titles <- c()
 songs_albums <- c()
@@ -48,19 +48,14 @@ songs_lyrics <- unlist(songs_lyrics)
 songs <- data.frame(title = songs_titles, album = songs_albums, lyrics = songs_lyrics)
 songs %>% head(1)
 
-# we are going to ignore alternative versions of the same song, such as
-# live versions, radio edits and remixes
-# we are also keeping only the main albums, ignoring specials or compilations
 albums <- c("?! (Caparezza ?!)", "Verità Supposte", "Habemus Capa",
             "Le Dimensioni Del Mio Caos", "Il Sogno Eretico", "Museica",
             "Prisoner 709", "Exuvia")
 songs <- songs %>%
   filter(!grepl("Live|Radio Edit|Radio Version|Remix|RMX", title) & album %in% albums)
 
-# finally, we order songs chronologically by the album
 songs <- songs %>% arrange(match(album, albums), title)
 
-# add id to each song
 doc_ids <- vector()
 for(i in 1:nrow(songs)){
   id <- paste("doc", toString(i), sep = "")
@@ -138,7 +133,8 @@ words_tf_idf <- colnames(tf_idf)
 wordlist_tf_idf <- data.frame(words = words_tf_idf, freqs = freqs_tf_idf)
 wordlist_tf_idf %>% arrange(-freqs) %>% head(10)
 
-wordcloud(words = wordlist_tf_idf$words, freq = wordlist_tf_idf$freqs, scale = c(3.5, 0.35), max.words = 50, random.order = F,
+wordcloud(words = wordlist_tf_idf$words, freq = wordlist_tf_idf$freqs,
+          scale = c(3.5, 0.35), max.words = 50, random.order = F,
           colors = RColorBrewer::brewer.pal(name = "Dark2", n = 4))
 text(0.5, 1, "wordcloud with TF-IDF ponderation", font = 2)
 
@@ -219,6 +215,110 @@ colnames(resultOverView) <- c("Freq-terms", "Freq", "MI-terms", "MI", "Dice-Term
 print(resultOverView)
 
 
+source("resources/calculateCoocStatistics.R")
+numberOfCoocs <- 10
+coocTerm <- "libro"
+coocs <- calculateCoocStatistics(coocTerm, binDTM, measure="LOGLIK")
+print(coocs[1:numberOfCoocs])
+resultGraph <- data.frame(from = character(), to = character(), sig = numeric(0))
+tmpGraph <- data.frame(from = character(), to = character(), sig = numeric(0))
+
+# Fill the data.frame to produce the correct number of lines
+tmpGraph[1:numberOfCoocs, 3] <- coocs[1:numberOfCoocs]
+# Entry of the search word into the first column in all lines
+tmpGraph[, 1] <- coocTerm
+# Entry of the co-occurrences into the second column of the respective line
+tmpGraph[, 2] <- names(coocs)[1:numberOfCoocs]
+# Set the significances
+tmpGraph[, 3] <- coocs[1:numberOfCoocs]
+
+# Attach the triples to resultGraph
+resultGraph <- rbind(resultGraph, tmpGraph)
+
+# Iteration over the most significant numberOfCoocs co-occurrences of the search term
+for (i in 1:numberOfCoocs){
+  
+  # Calling up the co-occurrence calculation for term i from the search words co-occurrences
+  newCoocTerm <- names(coocs)[i]
+  coocs2 <- calculateCoocStatistics(newCoocTerm, binDTM, measure="LOGLIK")
+  
+  #print the co-occurrences
+  coocs2[1:10]
+  
+  # Structure of the temporary graph object
+  tmpGraph <- data.frame(from = character(), to = character(), sig = numeric(0))
+  tmpGraph[1:numberOfCoocs, 3] <- coocs2[1:numberOfCoocs]
+  tmpGraph[, 1] <- newCoocTerm
+  tmpGraph[, 2] <- names(coocs2)[1:numberOfCoocs]
+  tmpGraph[, 3] <- coocs2[1:numberOfCoocs]
+  
+  #Append the result to the result graph
+  resultGraph <- rbind(resultGraph, tmpGraph[2:length(tmpGraph[, 1]), ])
+}
+
+# Sample of some examples from resultGraph
+resultGraph[sample(nrow(resultGraph), 6), ]
+
+
+# set seed for graph plot
+set.seed(1)
+
+# Create the graph object as undirected graph
+graphNetwork <- graph.data.frame(resultGraph, directed = F)
+
+# Identification of all nodes with less than 2 edges
+verticesToRemove <- V(graphNetwork)[degree(graphNetwork) < 2]
+# These edges are removed from the graph
+graphNetwork <- delete.vertices(graphNetwork, verticesToRemove) 
+
+# Assign colors to nodes (search term blue, others orange)
+V(graphNetwork)$color <- ifelse(V(graphNetwork)$name == coocTerm, 'cornflowerblue', 'orange') 
+
+# Set edge colors
+E(graphNetwork)$color <- adjustcolor("DarkGray", alpha.f = .5)
+# scale significance between 1 and 10 for edge width
+E(graphNetwork)$width <- scales::rescale(E(graphNetwork)$sig, to = c(1, 10))
+
+# Set edges with radius
+E(graphNetwork)$curved <- 0.15 
+# Size the nodes by their degree of networking (scaled between 5 and 15)
+V(graphNetwork)$size <- scales::rescale(log(degree(graphNetwork)), to = c(5, 15))
+
+# Define the frame and spacing for the plot
+par(mai=c(0,0,1,0)) 
+
+# Final Plot
+plot(
+  graphNetwork,             
+  layout = layout.fruchterman.reingold, # Force Directed Layout 
+  main = paste(coocTerm, ' Graph'),
+  vertex.label.family = "sans",
+  vertex.label.cex = 0.8,
+  vertex.shape = "circle",
+  vertex.label.dist = 0.5,          # Labels of the nodes moved slightly
+  vertex.frame.color = adjustcolor("darkgray", alpha.f = .5),
+  vertex.label.color = 'black',     # Color of node names
+  vertex.label.font = 2,            # Font of node names
+  vertex.label = V(graphNetwork)$name,      # node names
+  vertex.label.cex = 1 # font size of node names
+)
+
+
+
+
+
+
+
+install.packages("topicmodels")
+library(topicmodels)
+
+
+topicModel <- LDA(DTM, 10, method="Gibbs", control=list(iter = 500, seed = 1, verbose = 25))
+tmResult <- posterior(topicModel)
+attributes(tmResult)
+
+
+terms(topicModel, 10)
 
 
 
@@ -232,7 +332,12 @@ print(resultOverView)
 
 
 
-#https://saifmohammad.com/WebPages/NRC-Emotion-Lexicon.htm
+
+
+
+
+
+  #https://saifmohammad.com/WebPages/NRC-Emotion-Lexicon.htm
 sentiment_lexicon <- read.table("resources/Italian-NRC-EmoLex.txt", header = TRUE,
                               sep = "\t")
 sentiment_lexicon_corpus <- emotion_lexicon %>% filter(Italian.Word %in% colnames(DTM))
