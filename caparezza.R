@@ -76,7 +76,7 @@ corpus_tokens <- caparezza_corpus %>%
 
 txt <- sapply(corpus_tokens, FUN=function(x) paste(x, collapse = "\n"))
 udpipe_download_model(language = "italian-isdt", model_dir = "resources/")
-lang_model <- udpipe_load_model(file = "italian-isdt-ud-2.5-191206.udpipe")
+lang_model <- udpipe_load_model(file = "resources/italian-isdt-ud-2.5-191206.udpipe")
 outL <- udpipe_annotate(lang_model, x = txt, tokenizer = "vertical", trace = TRUE) %>%
   as.data.frame()
 it_stopwords <- readLines("https://raw.githubusercontent.com/stopwords-iso/stopwords-it/master/stopwords-it.txt")
@@ -122,10 +122,19 @@ lexicon_width
 language_refinement <- words_occurrencies$vK[1] / colSums(words_occurrencies)[2]
 language_refinement
 
-wordcloud(words = wordlist$words, freq = wordlist$freqs, scale = c(3.5, 0.35), max.words = 50, random.order = F,
+par(mar=c(1,1,0.5,1))
+wordcloud(words = wordlist$words, freq = wordlist$freqs, scale = c(3.5, 0.35),
+          max.words = 50, random.order = F,
           colors = RColorBrewer::brewer.pal(name = "Dark2", n = 4))
 text(0.5, 1, "wordcloud with TF ponderation", font = 2)
 
+count <- 1
+for(i in songs$lyrics){
+  if(grepl("mamma", i)){
+    print(songs$title[[count]])
+  }
+  count <- count + 1
+}
 
 tf_idf <- dfm_tfidf(DTM)
 freqs_tf_idf <- colSums(tf_idf)
@@ -133,6 +142,7 @@ words_tf_idf <- colnames(tf_idf)
 wordlist_tf_idf <- data.frame(words = words_tf_idf, freqs = freqs_tf_idf)
 wordlist_tf_idf %>% arrange(-freqs) %>% head(10)
 
+par(mar=c(1,1,0.5,1))
 wordcloud(words = wordlist_tf_idf$words, freq = wordlist_tf_idf$freqs,
           scale = c(3.5, 0.35), max.words = 50, random.order = F,
           colors = RColorBrewer::brewer.pal(name = "Dark2", n = 4))
@@ -304,43 +314,9 @@ plot(
 )
 
 
-
-
-
-
-
-install.packages("topicmodels")
-library(topicmodels)
-
-
-topicModel <- LDA(DTM, 10, method="Gibbs", control=list(iter = 500, seed = 1, verbose = 25))
-tmResult <- posterior(topicModel)
-attributes(tmResult)
-
-
-terms(topicModel, 10)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  #https://saifmohammad.com/WebPages/NRC-Emotion-Lexicon.htm
-sentiment_lexicon <- read.table("resources/Italian-NRC-EmoLex.txt", header = TRUE,
-                              sep = "\t")
-sentiment_lexicon_corpus <- emotion_lexicon %>% filter(Italian.Word %in% colnames(DTM))
+sentiment_lexicon <- read.table("resources/Italian-NRC-EmoLex.txt",
+                                header = TRUE, sep = "\t")
+sentiment_lexicon_corpus <- sentiment_lexicon %>% filter(Italian.Word %in% colnames(DTM))
 positive_terms <- sentiment_lexicon_corpus %>% filter(positive == 1) %>%
   select(Italian.Word) %>% pull()
 negative_terms <- sentiment_lexicon_corpus %>% filter(positive == 0) %>%
@@ -356,32 +332,42 @@ sentiments_by_album <- aggregate(relative_sentiment_frequencies,
                                  by = list(album = songs$album), mean)
 
 head(sentiments_by_album)
-df <- melt(sentiments_by_album, id.vars = "album")
-ggplot(data = df, aes(x = album, y = value, fill = variable)) + 
+df_sentiment <- melt(sentiments_by_album, id.vars = "album")
+ggplot(data = df_sentiment, aes(x = album, y = value, fill = variable)) + 
   geom_bar(stat="identity", position="stack") + coord_flip()
 
 positive_songs <- aggregate(
   relative_sentiment_frequencies, by = list(album = songs$title),
   mean) %>% filter(positive > negative)
+positive_songs
 
 
+anger_terms <- sentiment_lexicon_corpus %>% filter(anger == 1) %>%
+  select(Italian.Word) %>% pull()
+fear_terms <- sentiment_lexicon_corpus %>% filter(fear == 1) %>%
+  select(Italian.Word) %>% pull()
+joy_terms <- sentiment_lexicon_corpus %>% filter(joy == 1) %>%
+  select(Italian.Word) %>% pull()
+sadness_terms <- sentiment_lexicon_corpus %>% filter(sadness == 1) %>%
+  select(Italian.Word) %>% pull()
 
+counts_anger <- rowSums(DTM[, anger_terms])
+counts_fear <- rowSums(DTM[, fear_terms])
+counts_joy <- rowSums(DTM[, joy_terms])
+counts_sadness <- rowSums(DTM[, sadness_terms])
 
+relative_emotion_frequencies <- data.frame(
+  anger = counts_anger / counts_all_terms,
+  fear = counts_fear / counts_all_terms,
+  joy = counts_joy / counts_all_terms,
+  sadness = counts_sadness / counts_all_terms
+)
 
+emotions_by_album <- aggregate(relative_emotion_frequencies,
+                                 by = list(album = songs$album), mean)
 
+head(emotions_by_album)
 
-
-
-# mamma mia mammà peso
-
-
-count <- 1
-for(i in songs$lyrics){
-  if(grepl("don't", i)){
-    print(songs$title[[count]])
-    readline()
-  }
-  count <- count + 1
-}
-
-
+df_emotions <- melt(emotions_by_album, id.vars = "album")
+ggplot(data = df_emotions, aes(x = album, y = value, fill = variable)) + 
+  geom_bar(stat="identity", position="stack") + coord_flip()

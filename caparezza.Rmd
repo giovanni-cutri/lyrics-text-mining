@@ -156,7 +156,7 @@ derivatives.
 ```{r}
 txt <- sapply(corpus_tokens, FUN=function(x) paste(x, collapse = "\n"))
 udpipe_download_model(language = "italian-isdt", model_dir = "resources/")
-lang_model <- udpipe_load_model(file = "italian-isdt-ud-2.5-191206.udpipe")
+lang_model <- udpipe_load_model(file = "resources/italian-isdt-ud-2.5-191206.udpipe")
 outL <- udpipe_annotate(lang_model, x = txt, tokenizer = "vertical", trace = TRUE) %>%
   as.data.frame()
 it_stopwords <- readLines("https://raw.githubusercontent.com/stopwords-iso/stopwords-it/master/stopwords-it.txt")
@@ -268,9 +268,25 @@ portrays the terms in the corpus with different sizes depending on their relativ
 frequency.
 
 ```{r}
-wordcloud(words = wordlist$words, freq = wordlist$freqs, scale = c(3.5, 0.35), max.words = 50, random.order = F,
+par(mar=c(1,1,0.5,1))
+wordcloud(words = wordlist$words, freq = wordlist$freqs, scale = c(3.5, 0.35),
+          max.words = 50, random.order = F,
           colors = RColorBrewer::brewer.pal(name = "Dark2", n = 4))
 text(0.5, 1, "wordcloud with TF ponderation", font = 2)
+```
+
+It could be interesting to know in which songs a given word appears, especially
+if it seems an odd one.
+We can use this function.
+
+```{r}
+count <- 1
+for(i in songs$lyrics){
+  if(grepl("mamma", i)){
+    print(songs$title[[count]])
+  }
+  count <- count + 1
+}
 ```
 
 
@@ -298,6 +314,7 @@ These are the most common terms after the applied weighting.
 Let's have a look at the new word cloud.
 
 ```{r}
+par(mar=c(1,1,0.5,1))
 wordcloud(words = wordlist_tf_idf$words, freq = wordlist_tf_idf$freqs,
           scale = c(3.5, 0.35), max.words = 50, random.order = F,
           colors = RColorBrewer::brewer.pal(name = "Dark2", n = 4))
@@ -504,3 +521,95 @@ plot(
 )
 ```
 
+
+## Sentiment analysis
+
+We are now going to perform a sentiment analysis on the lyrics of the songs.
+At (this link)[#https://saifmohammad.com/WebPages/NRC-Emotion-Lexicon.htm], you
+can download NRC emotion lexicons in different languages. It allows you to
+catalogue words in positive / negative classes and even emotions, as we will see
+later.
+
+```{r}
+sentiment_lexicon <- read.table("resources/Italian-NRC-EmoLex.txt",
+                                header = TRUE, sep = "\t")
+sentiment_lexicon_corpus <- emotion_lexicon %>% filter(Italian.Word %in% colnames(DTM))
+positive_terms <- sentiment_lexicon_corpus %>% filter(positive == 1) %>%
+  select(Italian.Word) %>% pull()
+negative_terms <- sentiment_lexicon_corpus %>% filter(positive == 0) %>%
+  select(Italian.Word) %>% pull()
+counts_positive <- rowSums(DTM[, positive_terms])
+counts_negative <- rowSums(DTM[, negative_terms])
+counts_all_terms <- rowSums(DTM)
+relative_sentiment_frequencies <- data.frame(
+  positive = counts_positive / counts_all_terms,
+  negative = counts_negative / counts_all_terms
+)
+sentiments_by_album <- aggregate(relative_sentiment_frequencies,
+                                 by = list(album = songs$album), mean)
+
+head(sentiments_by_album)
+df_sentiment <- melt(sentiments_by_album, id.vars = "album")
+ggplot(data = df_sentiment, aes(x = album, y = value, fill = variable)) + 
+  geom_bar(stat="identity", position="stack") + coord_flip()
+```
+
+Here we have catalogued every single word, then grouped words by albums and
+visualized the sentiment distribution for each album. We see that the sentiment
+is mostly negative for every single one. It has probably to do with the topics
+that appear in Caparezza's songs, who is notoriously a socially engaged singer
+and therefore often criticizes the hypocrisy of society.
+
+It would be interesting to know if there is at least one song with more positive
+words than negative ones. Let's find out.
+
+```{r}
+positive_songs <- aggregate(
+  relative_sentiment_frequencies, by = list(album = songs$title),
+  mean) %>% filter(positive > negative)
+positive_songs
+```
+
+Here they are. *Chi se ne frega della musica*, *Fugadà* and *Uomini di molta fede*
+have been classified as mostly positive songs.
+
+
+## Emotion analysis
+
+For the last part of our analysis, we are going to look at the emotions,
+specifically anger, fear, joy and sadness, using the same NCR lexicon as before.
+
+```{r}
+anger_terms <- sentiment_lexicon_corpus %>% filter(anger == 1) %>%
+  select(Italian.Word) %>% pull()
+fear_terms <- sentiment_lexicon_corpus %>% filter(fear == 1) %>%
+  select(Italian.Word) %>% pull()
+joy_terms <- sentiment_lexicon_corpus %>% filter(joy == 1) %>%
+  select(Italian.Word) %>% pull()
+sadness_terms <- sentiment_lexicon_corpus %>% filter(sadness == 1) %>%
+  select(Italian.Word) %>% pull()
+
+counts_anger <- rowSums(DTM[, anger_terms])
+counts_fear <- rowSums(DTM[, fear_terms])
+counts_joy <- rowSums(DTM[, joy_terms])
+counts_sadness <- rowSums(DTM[, sadness_terms])
+
+relative_emotion_frequencies <- data.frame(
+  anger = counts_anger / counts_all_terms,
+  fear = counts_fear / counts_all_terms,
+  joy = counts_joy / counts_all_terms,
+  sadness = counts_sadness / counts_all_terms
+)
+
+emotions_by_album <- aggregate(relative_emotion_frequencies,
+                                 by = list(album = songs$album), mean)
+
+head(emotions_by_album)
+
+df_emotions <- melt(emotions_by_album, id.vars = "album")
+ggplot(data = df_emotions, aes(x = album, y = value, fill = variable)) + 
+  geom_bar(stat="identity", position="stack") + coord_flip()
+```
+
+Anger and fear are the prevailing emotions and they are mostly noticeable in
+the *Museica* album. The album where joy shares a larger percentage is *Exuvia*.
