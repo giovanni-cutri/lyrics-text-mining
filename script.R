@@ -140,7 +140,7 @@ wordlist_tf_idf %>% arrange(-freqs) %>% head(10)
 
 wordcloud(words = wordlist_tf_idf$words, freq = wordlist_tf_idf$freqs, scale = c(3.5, 0.35), max.words = 50, random.order = F,
           colors = RColorBrewer::brewer.pal(name = "Dark2", n = 4))
-text(0.5, 1, "wordcloud with TF ponderation", font = 2)
+text(0.5, 1, "wordcloud with TF-IDF ponderation", font = 2)
 
 
 lemmatized_lyrics_by_album <- songs %>% group_by(album) %>%
@@ -149,10 +149,85 @@ corpus_album <- lemmatized_lyrics_by_album$lemmatized %>% corpus()
 
 DTM_album <- corpus_album %>% tokens() %>% dfm()
 DTM_album
+docnames(DTM_album) <- lemmatized_lyrics_by_album$album
 wordlist_album <- DTM_album %>% as.matrix() %>% t()
+par(mar=c(0,0,0,0))
 comparison.cloud(wordlist_album, scale = c(2, 1), max.words = 50, random.order = F,
-          colors = RColorBrewer::brewer.pal(name = "Dark2", n = 8))
-text(0.5, 1, "wordcloud with TF ponderation", font = 2)
+                 title.size = 1, colors = RColorBrewer::brewer.pal(name = "Dark2", n = 8))
+text(0.5, 1, "comparison cloud by album", font = 2)
+
+
+binDTM <- DTM %>% dfm_trim(min_docfreq = 10) %>% dfm_weight("boolean")
+coocCounts <- t(binDTM) %*% binDTM
+as.matrix(coocCounts[100:102, 100:102])
+
+coocTerm <- "lavoro"
+k <- nrow(binDTM)
+ki <- sum(binDTM[, coocTerm])
+kj <- colSums(binDTM)
+names(kj) <- colnames(binDTM)
+kij <- coocCounts[coocTerm, ]
+
+mutualInformationSig <- log(k * kij / (ki * kj))
+mutualInformationSig <- mutualInformationSig[order(mutualInformationSig, decreasing = TRUE)]
+
+dicesig <- 2 * kij / (ki + kj)
+dicesig <- dicesig[order(dicesig, decreasing=TRUE)]
+
+logsig <- 2 * ((k * log(k)) - (ki * log(ki)) - (kj * log(kj)) + (kij * log(kij)) 
+               + (k - ki - kj + kij) * log(k - ki - kj + kij) 
+               + (ki - kij) * log(ki - kij) + (kj - kij) * log(kj - kij) 
+               - (k - ki) * log(k - ki) - (k - kj) * log(k - kj))
+logsig <- logsig[order(logsig, decreasing=T)]
+
+resultOverView <- data.frame(
+  names(sort(kij, decreasing=T)[1:10]), sort(kij, decreasing=T)[1:10],
+  names(mutualInformationSig[1:10]), mutualInformationSig[1:10], 
+  names(dicesig[1:10]), dicesig[1:10], 
+  names(logsig[1:10]), logsig[1:10],
+  row.names = NULL)
+colnames(resultOverView) <- c("Freq-terms", "Freq", "MI-terms", "MI", "Dice-Terms", "Dice", "LL-Terms", "LL")
+print(resultOverView)
+
+
+coocTerm <- "leggere"
+k <- nrow(binDTM)
+ki <- sum(binDTM[, coocTerm])
+kj <- colSums(binDTM)
+names(kj) <- colnames(binDTM)
+kij <- coocCounts[coocTerm, ]
+
+mutualInformationSig <- log(k * kij / (ki * kj))
+mutualInformationSig <- mutualInformationSig[order(mutualInformationSig, decreasing = TRUE)]
+
+dicesig <- 2 * kij / (ki + kj)
+dicesig <- dicesig[order(dicesig, decreasing=TRUE)]
+
+logsig <- 2 * ((k * log(k)) - (ki * log(ki)) - (kj * log(kj)) + (kij * log(kij)) 
+               + (k - ki - kj + kij) * log(k - ki - kj + kij) 
+               + (ki - kij) * log(ki - kij) + (kj - kij) * log(kj - kij) 
+               - (k - ki) * log(k - ki) - (k - kj) * log(k - kj))
+logsig <- logsig[order(logsig, decreasing=T)]
+
+resultOverView <- data.frame(
+  names(sort(kij, decreasing=T)[1:10]), sort(kij, decreasing=T)[1:10],
+  names(mutualInformationSig[1:10]), mutualInformationSig[1:10], 
+  names(dicesig[1:10]), dicesig[1:10], 
+  names(logsig[1:10]), logsig[1:10],
+  row.names = NULL)
+colnames(resultOverView) <- c("Freq-terms", "Freq", "MI-terms", "MI", "Dice-Terms", "Dice", "LL-Terms", "LL")
+print(resultOverView)
+
+
+
+
+
+
+
+
+
+
+
 
 
 
