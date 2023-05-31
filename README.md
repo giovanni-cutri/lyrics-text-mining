@@ -1,5 +1,5 @@
 # Lyrics text mining
-Text mining analysis performed on lyrics of some popular songs.
+Text mining analysis performed on lyrics of some popular songs, with tools like *quanteda* and *UDPipe*.
 
 ## Notebooks :books: 
 
